@@ -4,12 +4,18 @@ export default {
     return {
       minDate: '',
       maxDate: '',
+      prevMinDate: '',
+      prevMaxDate: '',
       newMinDate: '',
       newMaxDate: '',
       minSelectedDate: '',
       maxSelectedDate: '',
+      prevSelectedMinDate: '',
+      prevSelectedMaxDate: '',
       newMinSelectedDate: '',
       newMaxSelectedDate: '',
+      displayMinSelectedDate: '',
+      displayMaxSelectedDate: '',
       years: [],
       months: ['фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг','сен', 'окт','ноя','дек'],
       yearsRange: Array.from({ length: 51 }, (v, k) => 2040 - k),
@@ -18,7 +24,7 @@ export default {
       isSlider: false,
       isFill: false,
       isActiveYears: true,
-      isAdaptiveSize: !window.matchMedia('(max-width: 650px)').matches
+      isAdaptiveSize: !window.matchMedia('(max-width: 650px)').matches,
     };
   },
   mounted() {
@@ -27,6 +33,83 @@ export default {
     });
   },
   methods: {
+    /**
+     * Обработчик нажатия на ползунки слайдера
+     */
+    onMouseDown(event) {
+        event.preventDefault();
+  
+        this.slider = this.$refs.slider;
+  
+        this.leftThumb = this.$refs.leftThumb;
+        this.leftCircle = this.$refs.leftCircle;
+  
+        this.rightThumb = this.$refs.rightThumb;
+        this.rightCircle = this.$refs.rightCircle;
+
+        if (event.target === document.getElementById('leftSliderThumb')) { //обработчик для левого ползунка
+
+          const shiftX = event.clientX - this.leftThumb.getBoundingClientRect().left;
+      
+          const onMouseMove = (event) => {
+            let newLeft = event.clientX - shiftX - this.slider.getBoundingClientRect().left;
+      
+            if (newLeft < 0) {
+              newLeft = 0;
+            }
+    
+            const rightEdge = this.rightThumb.getBoundingClientRect().left - this.slider.getBoundingClientRect().left - this.leftCircle.offsetWidth;
+            if (newLeft > rightEdge) {
+             newLeft = rightEdge;
+            }
+      
+            this.leftThumb.style.left = newLeft + 'px';
+    
+            let position = (this.leftThumb.getBoundingClientRect().left - this.slider.getBoundingClientRect().left)/this.slider.offsetWidth * 100;
+            
+            this.minSelectedYearPosition = position;
+          };
+          const onMouseUp = () => {
+            document.removeEventListener('mouseup', onMouseUp);
+            document.removeEventListener('mousemove', onMouseMove);
+          };
+    
+          document.addEventListener('mousemove', onMouseMove);
+          document.addEventListener('mouseup', onMouseUp);
+
+        } else if (event.target === document.getElementById('rightSliderThumb')) { //обработчик для правого ползунка ползунка
+
+          const shiftX = event.clientX - this.rightThumb.getBoundingClientRect().left;
+      
+          const onMouseMove = (event) => {
+            let newLeft = event.clientX - shiftX - this.slider.getBoundingClientRect().left;
+      
+            const leftEdge = this.leftThumb.getBoundingClientRect().left - this.slider.getBoundingClientRect().left + this.rightCircle.offsetWidth;
+
+            if (newLeft < leftEdge) {
+              newLeft = leftEdge;
+            }
+    
+            const rightEdge = this.slider.offsetWidth - this.rightCircle.offsetWidth;
+            if (newLeft > rightEdge) {
+             newLeft = rightEdge;
+            }
+      
+            this.rightThumb.style.left = newLeft + 'px';
+    
+            let position = (this.rightThumb.getBoundingClientRect().left - this.slider.getBoundingClientRect().left)/this.slider.offsetWidth * 100;
+            
+            this.maxSelectedYearPosition = position;
+          };
+          const onMouseUp = () => {
+            document.removeEventListener('mouseup', onMouseUp);
+            document.removeEventListener('mousemove', onMouseMove);
+          };
+    
+          document.addEventListener('mousemove', onMouseMove);
+          document.addEventListener('mouseup', onMouseUp);
+        }
+    },
     /**
      * Рассчет позиций выбранной даты на слайдере
      * @param {Выбранная дата} selectedDate 
@@ -42,16 +125,33 @@ export default {
       
       const selectedYear = selectedDate.getFullYear();
       const minYear = this.minDate.getFullYear();
-
-      const marchDate = new Date(selectedDate.getFullYear(), 5, 1);
       
       if (isMinSelectionPosition) {
         this.minSelectedYearPosition = (((dayOfYear / 365) * 100) / totalYears) + (((selectedYear - minYear) / totalYears) * 100) - 0.5;
-        if (this.isActiveYears && selectedDate > marchDate) this.minSelectedYearPosition;
+        this.countDate(this.minSelectedYearPosition, true);
       } else {
         this.maxSelectedYearPosition = (((dayOfYear / 365) * 100) / totalYears) + (((selectedYear - minYear) / totalYears) * 100) - 1.1;
-        if (this.isActiveYears && selectedDate > marchDate) this.maxSelectedYearPosition;
+        this.countDate(this.minSelectedYearPosition, false);
       }
+    },
+    /**
+     * Рассчет даты потносительно позиции выбранной даты на слайдере
+     * @param {Координаты расположения даты на слайдере} selectedPosition 
+     * @param {Минимальная/максимальная дата} isMinSelectionPosition 
+     */
+    countDate(selectedPosition, isMinSelectionPosition) {
+      const totalYears = this.years.length; 
+      const minYear = this.minDate.getFullYear();
+
+      const daysFromStartOfYear = Math.floor(((selectedPosition - 0.5)/ 100) * totalYears * 365);
+
+      const startOfYear = new Date(minYear, 0, 0);
+      const selectedDate = new Date(startOfYear.getTime() + daysFromStartOfYear * 24 * 60 * 60 * 1000);
+
+      selectedDate.setMonth(selectedDate.getMonth() + 1);
+
+      if (isMinSelectionPosition) this.displayMinSelectedDate = selectedDate;
+      else this.displayMaxSelectedDate = selectedDate;
     },
     /**
      * Отображение временного отрезка на слайдере
@@ -66,13 +166,22 @@ export default {
 
       if (currentMinDate >= currentMaxDate) {
         alert('Минимальная дата больше или равна максимальной!');
+        this.newMinDate = this.prevMinDate;
+        this.newMaxDate = this.prevMaxDate;
       } else if (this.isFill == true && currentMinDate >  currentMinSelectedDate) {
         alert("Начало даты не может быть меньше минимальной даты");
+        this.newMinDate = this.prevMinDate;
+        this.newMaxDate = this.prevMaxDate;
       } else if (this.isFill == true && currentMaxDate < currentMaxnSelectedDate) {
         alert("Конец даты не может быть больше максимальной даты");
+        this.newMinDate = this.prevMinDate;
+        this.newMaxDate = this.prevMaxDate;
       } else {
           this.minDate = currentMinDate;
           this.maxDate = currentMaxDate;
+
+          this.prevMinDate = this.newMinDate;
+          this.prevMaxDate = this.newMaxDate;
 
           this.years.length = 0;
 
@@ -83,12 +192,14 @@ export default {
             this.years.push(year);
           }
 
+          if (this.years.length >= 3 || window.matchMedia('(max-width: 650px)').matches) this.isAdaptiveSize = false;
+          else this.isAdaptiveSize = true;
+
           if (this.isFill) {
             this.positionDate(this.minSelectedDate, true);
             this.positionDate(this.maxSelectedDate, false);
           }
 
-          this.isActiveYears = true;
           this.isSlider = true;
        }
       }
@@ -105,62 +216,52 @@ export default {
         const currentMaxnSelectedDate = new Date(this.newMaxSelectedDate);
         if (currentMinSelectedDate >= currentMaxnSelectedDate) {
           alert("Начало даты не может быть больше конца даты!");
+          this.newMinSelectedDate = this.prevSelectedMinDate;
+          this.newMaxSelectedDate = this.prevSelectedMaxDate;
         } else if (currentMinSelectedDate < this.minDate) {
           alert("Начало даты не может быть меньше минимальной даты");
+          this.newMinSelectedDate = this.prevSelectedMinDate;
+          this.newMaxSelectedDate = this.prevSelectedMaxDate;
         } else if (currentMaxnSelectedDate > this.maxDate) {
           alert("Конец даты не может быть больше максимальной даты");
+          this.newMinSelectedDate = this.prevSelectedMinDate;
+          this.newMaxSelectedDate = this.prevSelectedMaxDate;
         } else {
+          this.prevSelectedMinDate = this.newMinSelectedDate;
+          this.prevSelectedMaxDate = this.newMaxSelectedDate;
+
           this.minSelectedDate = currentMinSelectedDate;
           this.maxSelectedDate = currentMaxnSelectedDate;
           this.positionDate(this.minSelectedDate, true);
           this.positionDate(this.maxSelectedDate, false);
           
           this.isFill = true;
+          console.log(`minSelectedYearPosition = ${this.minSelectedYearPosition}`);
         }
       } else {
           this.isFill = false;
       }
     },
-    /**
-     * Отображение временного отрезка на слайдере по месяцам
-     */
-    checkMonths() {
-      this.applyNewDates();
-      this.isActiveYears = false;
-
-      if (this.years.length > 2) {
-
-        const minYear = this.minDate.getFullYear();
-        const maxYear = minYear + 2;
-
-        this.maxDate = new Date(maxYear, 0, 1);
-
-        this.years.length = 0;
-
-        for (let year = minYear; year <= maxYear - 1; year++) {
-          this.years.push(year);
-        }
-
-        this.newMinSelectedDate = '',
-        this.newMaxSelectedDate = '',
-
-        this.isFill = false;
-      }
-    }
   },
   watch: {
-    newMinDate: function () {
+    /* newMinDate: function () {
         this.applyNewDates();
     },
     newMaxDate: function () {
         this.applyNewDates();
-    },
-    newMinSelectedDate: function () {
+    }, */
+   /*  newMinSelectedDate: function () {
       this.updateSelectedDate();
     },
     newMaxSelectedDate: function () {
       this.updateSelectedDate();
-    }
+    }, */
+    minSelectedYearPosition: function () {
+      this.countDate(this.minSelectedYearPosition, true);
+    },
+    maxSelectedYearPosition: function () {
+      this.countDate(this.maxSelectedYearPosition, false);
+    }  
   }
 };
 </script>
@@ -172,13 +273,13 @@ export default {
         <div class="panel-parameters__inputs">
           <div class="panel-parameters__input">
             <p>Введите Минимальный год</p>
-            <select v-model="newMinDate" title="2024">
+            <select v-model="newMinDate" @click="applyNewDates()" title="2024">
               <option v-for="year in yearsRange" :value="year" :key="year">{{ year }}</option>
             </select>
           </div>
           <div class="panel-parameters__input">
             <p>Введите Максимальный год</p>
-            <select v-model="newMaxDate" title="2027">
+            <select v-model="newMaxDate" @click="applyNewDates()" title="2027">
               <option v-for="year in yearsRange" :value="year" :key="year">{{ year }}</option>
             </select>
           </div>
@@ -189,21 +290,21 @@ export default {
           <div class="panel-parameters__inputs">
             <div class="panel-parameters__input">
               <p>выбрать начало даты</p>
-              <input type="month" v-model="newMinSelectedDate" placeholder="Введите дату">
+              <input type="month" v-model="newMinSelectedDate" @input="updateSelectedDate" placeholder="Введите дату">
             </div>
             <div class="panel-parameters__input">
               <p>выбрать конец даты</p>
-              <input type="month" v-model="newMaxSelectedDate" placeholder="Введите дату">
+              <input type="month" v-model="newMaxSelectedDate" @input="updateSelectedDate" placeholder="Введите дату">
             </div>
           </div>
         </div>
       </div>
     </div>
     
-    <div class="slider" v-if="this.isSlider">
+    <div class="slider" ref="slider" v-if="this.isSlider">
       <div class="slider-buttons">
-        <button @click="applyNewDates()" class="slider-button" :class="{ 'isActive': isActiveYears }">Все года</button>
-        <button @click="checkMonths()" class="slider-button" :class="{ 'isActive': !isActiveYears }">Все месяца</button>
+        <button @click="isActiveYears = true" class="slider-button" :class="{ 'isActive': isActiveYears }">Все года</button>
+        <button @click="isActiveYears = false" class="slider-button" :class="{ 'isActive': !isActiveYears }">Все месяца</button>
       </div>
           <div v-for="year in years" :key="year" class="year">
             <p class="year-text">{{ year }}</p>
@@ -214,21 +315,21 @@ export default {
           </div>
           <span>{{ maxDate.getFullYear() }}</span>
           <div class="slider-selected" v-if="isFill">
-            <div class="selected-date" :style="{ left: minSelectedYearPosition + '%' }">
-                <div class="selected-date__circle"></div>
+            <div class="selected-date" ref="leftThumb" :style="{ left: minSelectedYearPosition + '%' }">
+                <div class="selected-date__circle" id="leftSliderThumb" @mousedown="onMouseDown" ref="leftCircle"></div>
                 <div class="tooltip-up">
                   <div class="tooltip-down__text">
-                    <p>{{minSelectedDate.toLocaleString("ru-RU", { month: "long" })}}</p>
-                    <p>{{minSelectedDate.getFullYear()}}</p>
+                    <p>{{displayMinSelectedDate.toLocaleString("ru-RU", { month: "long" })}}</p>
+                    <p>{{displayMinSelectedDate.getFullYear()}}</p>
                   </div>
                 </div>
             </div>
-            <div class="selected-date" :style="{ left: maxSelectedYearPosition + '%' }">
-                <div class="selected-date__circle"></div>
+            <div class="selected-date" ref="rightThumb" :style="{ left: maxSelectedYearPosition + '%' }">
+                <div class="selected-date__circle" id="rightSliderThumb" @mousedown="onMouseDown" ref="rightCircle"></div>
                 <div class="tooltip-down">
                   <div class="tooltip-down__text">
-                    <p>{{maxSelectedDate.toLocaleString("ru-RU", { month: "long" })}}</p>
-                    <p>{{maxSelectedDate.getFullYear()}}</p>
+                    <p>{{displayMaxSelectedDate.toLocaleString("ru-RU", { month: "long" })}}</p>
+                    <p>{{displayMaxSelectedDate.getFullYear()}}</p>
                   </div>
                 </div>
             </div>
@@ -358,6 +459,8 @@ export default {
   display: flex;
   justify-content: space-between;
   text-align: center;
+  padding-left: 50px;
+  padding-right: 44px;
 }
 
 .month-text {
@@ -365,7 +468,7 @@ export default {
   font-size: 14px;
 }
 
-.one-year {
+/* .one-year {
   padding-left: 100px;
   padding-right: 100px;
 }
@@ -373,7 +476,7 @@ export default {
 .two-years {
   padding-left: 50px;
   padding-right: 44px;
-}
+} */
 
 
 .selected-date {
@@ -389,15 +492,16 @@ export default {
     border: 5px solid rgb(47, 220, 243);
     border-radius: 90%;
     box-sizing: border-box;
+    cursor: pointer;
 }
 
 .tooltip-down {
     position: relative;
-    top: 5px; /* располагаем тултип под selected-date */
-    transform: translateX(-50%); /* центрируем точку в середине */
-    background-color: rgba(255, 255, 255, 0.8); /* цвет фона тултипа */
-    padding: 5px; /* отступы внутри тултипа */
-    border-radius: 5px; /* закругляем углы тултипа */
+    top: 5px; 
+    transform: translateX(-50%); 
+    background-color: rgba(255, 255, 255, 0.8); 
+    padding: 5px; 
+    border-radius: 5px; 
     box-shadow: 1px 1px 5px 0px #000000;
     z-index: 999;
 }
