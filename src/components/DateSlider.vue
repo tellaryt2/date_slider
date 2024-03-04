@@ -150,8 +150,18 @@ export default {
 
       selectedDate.setMonth(selectedDate.getMonth() + 1);
 
-      if (isMinSelectionPosition) this.displayMinSelectedDate = selectedDate;
-      else this.displayMaxSelectedDate = selectedDate;
+      const formattedMonth = selectedDate.getMonth() < 9 ? `0${selectedDate.getMonth() + 1}` : `${selectedDate.getMonth() + 1}`;
+
+      if (isMinSelectionPosition)  {
+        this.displayMinSelectedDate = selectedDate; 
+        this.newMinSelectedDate = `${selectedDate.getFullYear()}-${formattedMonth}`;
+        this.minSelectedDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth());
+      }
+      else {
+        this.displayMaxSelectedDate = selectedDate;
+        this.newMaxSelectedDate = `${selectedDate.getFullYear()}-${formattedMonth}`;
+        this.maxSelectedDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDay());
+      }
     },
     /**
      * Отображение временного отрезка на слайдере
@@ -244,18 +254,6 @@ export default {
     },
   },
   watch: {
-    /* newMinDate: function () {
-        this.applyNewDates();
-    },
-    newMaxDate: function () {
-        this.applyNewDates();
-    }, */
-   /*  newMinSelectedDate: function () {
-      this.updateSelectedDate();
-    },
-    newMaxSelectedDate: function () {
-      this.updateSelectedDate();
-    }, */
     minSelectedYearPosition: function () {
       this.countDate(this.minSelectedYearPosition, true);
     },
